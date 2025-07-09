@@ -22,10 +22,13 @@ jobs:
         with:
           channel: stable
 
+      - name: 🧹 Clean build artifacts
+        run: flutter clean
+
       - name: 📦 Get Flutter dependencies
         run: flutter pub get
 
-      - name: Add App icon
+      - name: 🎨 Add App icon
         run: flutter pub run flutter_launcher_icons
 
       - name: 🔨 Build APK
