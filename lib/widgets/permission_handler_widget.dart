@@ -1,10 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/permission_service.dart';
 
 class PermissionHandlerWidget extends StatefulWidget {
   final Widget child;
-  
+
   const PermissionHandlerWidget({super.key, required this.child});
 
   @override
@@ -24,56 +26,51 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
 
   Future<void> _checkPermissions() async {
     setState(() => _isCheckingPermissions = true);
-    
+
+    // Check if on Android 13+
+    final isAndroid13Plus = Platform.isAndroid && (await Permission.mediaAudio.isSupported());
+
     final hasPermissions = await PermissionService.hasAllEssentialPermissions();
     final deniedPermissions = await PermissionService.getDeniedPermissions();
-    
+
+    // For Android 13+, fallback to mediaAudio
+    if (isAndroid13Plus && deniedPermissions.contains(Permission.storage)) {
+      deniedPermissions.remove(Permission.storage);
+      if (!deniedPermissions.contains(Permission.mediaAudio)) {
+        deniedPermissions.add(Permission.mediaAudio);
+      }
+    }
+
     setState(() {
       _hasEssentialPermissions = hasPermissions;
       _deniedPermissions = deniedPermissions;
       _isCheckingPermissions = false;
     });
+
+    debugPrint('[Permissions] Has: $_hasEssentialPermissions | Denied: $_deniedPermissions');
   }
 
   Future<void> _requestSpecificPermission(Permission permission) async {
-    // Check if permanently denied
     final isPermanentlyDenied = await PermissionService.isPermanentlyDenied(permission);
-    
+
     if (isPermanentlyDenied) {
-      final shouldOpenSettings = await PermissionService.showSettingsDialog(
-        context,
-        [permission],
-      );
-      
+      final shouldOpenSettings = await PermissionService.showSettingsDialog(context, [permission]);
       if (shouldOpenSettings) {
         await openAppSettings();
-        // Recheck permissions when user returns from settings
         _checkPermissions();
       }
       return;
     }
 
-    // Show rationale if needed
-    final shouldRequest = await PermissionService.showPermissionRationale(
-      context,
-      permission,
-    );
-    
+    final shouldRequest = await PermissionService.showPermissionRationale(context, permission);
     if (!shouldRequest) return;
 
-    // Request the specific permission
     final result = await PermissionService.requestMissingPermissions([permission]);
-    
+
     if (result[permission]?.isGranted ?? false) {
-      // Remove from denied list and recheck
       _checkPermissions();
     } else if (result[permission]?.isPermanentlyDenied ?? false) {
-      // Show settings dialog
-      final shouldOpenSettings = await PermissionService.showSettingsDialog(
-        context,
-        [permission],
-      );
-      
+      final shouldOpenSettings = await PermissionService.showSettingsDialog(context, [permission]);
       if (shouldOpenSettings) {
         await openAppSettings();
         _checkPermissions();
@@ -84,8 +81,7 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
   Future<void> _requestAllMissingPermissions() async {
     final permanentlyDenied = <Permission>[];
     final canRequest = <Permission>[];
-    
-    // Categorize denied permissions
+
     for (final permission in _deniedPermissions) {
       if (await PermissionService.isPermanentlyDenied(permission)) {
         permanentlyDenied.add(permission);
@@ -93,44 +89,33 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
         canRequest.add(permission);
       }
     }
-    
-    // Handle permanently denied permissions
+
     if (permanentlyDenied.isNotEmpty) {
-      final shouldOpenSettings = await PermissionService.showSettingsDialog(
-        context,
-        permanentlyDenied,
-      );
-      
+      final shouldOpenSettings = await PermissionService.showSettingsDialog(context, permanentlyDenied);
       if (shouldOpenSettings) {
         await openAppSettings();
         _checkPermissions();
         return;
       }
     }
-    
-    // Request permissions that can be requested
+
     if (canRequest.isNotEmpty) {
       final results = await PermissionService.requestMissingPermissions(canRequest);
-      
-      // Check if any became permanently denied
+
       final newlyPermanentlyDenied = <Permission>[];
       results.forEach((permission, status) {
         if (status.isPermanentlyDenied) {
           newlyPermanentlyDenied.add(permission);
         }
       });
-      
+
       if (newlyPermanentlyDenied.isNotEmpty) {
-        final shouldOpenSettings = await PermissionService.showSettingsDialog(
-          context,
-          newlyPermanentlyDenied,
-        );
-        
+        final shouldOpenSettings = await PermissionService.showSettingsDialog(context, newlyPermanentlyDenied);
         if (shouldOpenSettings) {
           await openAppSettings();
         }
       }
-      
+
       _checkPermissions();
     }
   }
@@ -184,11 +169,7 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.security,
-                    size: 80,
-                    color: Colors.white,
-                  ),
+                  const Icon(Icons.security, size: 80, color: Colors.white),
                   const SizedBox(height: 32),
                   const Text(
                     'Permissions Required',
@@ -209,39 +190,37 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
-                  
-                  // Individual permission cards
+
                   ..._deniedPermissions.map((permission) => Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: ListTile(
-                        leading: Icon(
-                          _getPermissionIcon(permission),
-                          color: Colors.orange,
-                        ),
-                        title: Text(
-                          PermissionService.getPermissionName(permission),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          PermissionService.getPermissionDescription(permission),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        trailing: ElevatedButton(
-                          onPressed: () => _requestSpecificPermission(permission),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Card(
+                          child: ListTile(
+                            leading: Icon(
+                              _getPermissionIcon(permission),
+                              color: Colors.orange,
+                            ),
+                            title: Text(
+                              PermissionService.getPermissionName(permission),
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              PermissionService.getPermissionDescription(permission),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            trailing: ElevatedButton(
+                              onPressed: () => _requestSpecificPermission(permission),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Grant'),
+                            ),
                           ),
-                          child: const Text('Grant'),
                         ),
-                      ),
-                    ),
-                  )),
-                  
+                      )),
+
                   const SizedBox(height: 24),
-                  
-                  // Grant all button
+
                   if (_deniedPermissions.isNotEmpty)
                     SizedBox(
                       width: double.infinity,
@@ -264,10 +243,9 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
                         ),
                       ),
                     ),
-                  
+
                   const SizedBox(height: 16),
-                  
-                  // Refresh button
+
                   TextButton(
                     onPressed: _checkPermissions,
                     child: const Text(
@@ -294,7 +272,8 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
       case Permission.storage:
         return Icons.folder;
       case Permission.audio:
-        return Icons.volume_up;
+      case Permission.mediaAudio:
+        return Icons.music_note;
       case Permission.notification:
         return Icons.notifications;
       default:

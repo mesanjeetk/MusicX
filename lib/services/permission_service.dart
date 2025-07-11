@@ -1,70 +1,84 @@
-import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class PermissionService {
-  static const List<Permission> _requiredPermissions = [
-    Permission.storage,
-    Permission.audio,
-    Permission.notification,
-  ];
+  /// Get the required permissions dynamically based on Android version.
+  static Future<List<Permission>> getRequiredPermissions() async {
+    if (!Platform.isAndroid) {
+      return []; // iOS or other platforms
+    }
 
-  static const List<Permission> _android13Permissions = [
-    Permission.audio,
-    Permission.notification,
-  ];
+    final sdkInt = await PermissionHandler.platformVersion;
 
-  /// Check all required permissions status
+    if (sdkInt != null && sdkInt >= 33) {
+      // Android 13+
+      return [
+        Permission.audio,
+        Permission.mediaAudio,
+        Permission.notification,
+      ];
+    } else {
+      // Android 12 and below
+      return [
+        Permission.audio,
+        Permission.storage,
+        Permission.notification,
+      ];
+    }
+  }
+
+  /// Check all required permissions status.
   static Future<Map<Permission, PermissionStatus>> checkAllPermissions() async {
     final Map<Permission, PermissionStatus> permissionStatuses = {};
-    
-    for (final permission in _requiredPermissions) {
+    final requiredPermissions = await getRequiredPermissions();
+
+    for (final permission in requiredPermissions) {
       permissionStatuses[permission] = await permission.status;
     }
-    
+
     return permissionStatuses;
   }
 
-  /// Request specific permissions that are not granted
+  /// Request specific permissions that are not granted.
   static Future<Map<Permission, PermissionStatus>> requestMissingPermissions(
     List<Permission> permissions,
   ) async {
     return await permissions.request();
   }
 
-  /// Check if all essential permissions are granted
+  /// Check if all essential permissions are granted.
   static Future<bool> hasAllEssentialPermissions() async {
     final statuses = await checkAllPermissions();
-    
-    // Check storage permission (essential for music scanning)
-    final storageGranted = statuses[Permission.storage]?.isGranted ?? false;
-    
-    // Check audio permission (essential for playback)
-    final audioGranted = statuses[Permission.audio]?.isGranted ?? false;
-    
-    return storageGranted && audioGranted;
+
+    final granted = statuses.entries.every(
+      (entry) => entry.value.isGranted,
+    );
+
+    return granted;
   }
 
-  /// Get list of denied permissions
+  /// Get list of denied permissions.
   static Future<List<Permission>> getDeniedPermissions() async {
     final statuses = await checkAllPermissions();
     final deniedPermissions = <Permission>[];
-    
+
     statuses.forEach((permission, status) {
       if (status.isDenied || status.isPermanentlyDenied) {
         deniedPermissions.add(permission);
       }
     });
-    
+
     return deniedPermissions;
   }
 
-  /// Check if permission is permanently denied
+  /// Check if permission is permanently denied.
   static Future<bool> isPermanentlyDenied(Permission permission) async {
     final status = await permission.status;
     return status.isPermanentlyDenied;
   }
 
-  /// Get user-friendly permission name
+  /// Get user-friendly permission name.
   static String getPermissionName(Permission permission) {
     switch (permission) {
       case Permission.storage:
@@ -73,26 +87,30 @@ class PermissionService {
         return 'Audio Access';
       case Permission.notification:
         return 'Notifications';
+      case Permission.mediaAudio:
+        return 'Media Audio Access';
       default:
         return permission.toString().split('.').last;
     }
   }
 
-  /// Get permission description for user
+  /// Get permission description for user.
   static String getPermissionDescription(Permission permission) {
     switch (permission) {
       case Permission.storage:
-        return 'Required to scan and access music files on your device';
+        return 'Required to scan and access music files on your device.';
       case Permission.audio:
-        return 'Required to play music and control audio playback';
+        return 'Required to play music and control audio playback.';
       case Permission.notification:
-        return 'Required to show playback controls in notifications';
+        return 'Required to show playback controls in notifications.';
+      case Permission.mediaAudio:
+        return 'Required to read audio files on Android 13 and above.';
       default:
-        return 'Required for app functionality';
+        return 'Required for app functionality.';
     }
   }
 
-  /// Show permission rationale dialog
+  /// Show permission rationale dialog.
   static Future<bool> showPermissionRationale(
     BuildContext context,
     Permission permission,
@@ -126,11 +144,11 @@ class PermissionService {
         ],
       ),
     );
-    
+
     return result ?? false;
   }
 
-  /// Show settings dialog for permanently denied permissions
+  /// Show settings dialog for permanently denied permissions.
   static Future<bool> showSettingsDialog(
     BuildContext context,
     List<Permission> permanentlyDeniedPermissions,
@@ -138,7 +156,7 @@ class PermissionService {
     final permissionNames = permanentlyDeniedPermissions
         .map((p) => getPermissionName(p))
         .join(', ');
-    
+
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -170,7 +188,7 @@ class PermissionService {
         ],
       ),
     );
-    
+
     return result ?? false;
   }
 }
