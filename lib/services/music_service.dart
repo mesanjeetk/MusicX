@@ -1,11 +1,11 @@
 import 'dart:io';
-import 'package:flutter_media_metadata/flutter_media_metadata.dart';
+import 'dart:math';
 import 'package:path_provider/path_provider.dart';
 import '../models/song.dart';
 
 class MusicService {
   static const List<String> _supportedExtensions = [
-    '.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg'
+    '.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wma'
   ];
 
   static Future<List<Song>> getAllSongs() async {
@@ -26,20 +26,46 @@ class MusicService {
       }
     }
     
+    // Sort songs alphabetically by title
+    songs.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    
     return songs;
   }
 
   static Future<List<Directory>> _getMusicDirectories() async {
     final directories = <Directory>[];
     
-    // External storage directories
-    final externalDir = await getExternalStorageDirectory();
-    if (externalDir != null) {
-      directories.add(Directory('${externalDir.path}/Music'));
-      directories.add(Directory('/storage/emulated/0/Music'));
-      directories.add(Directory('/storage/emulated/0/Download'));
-      directories.add(Directory('/sdcard/Music'));
-      directories.add(Directory('/sdcard/Download'));
+    // Common Android music directories
+    final commonPaths = [
+      '/storage/emulated/0/Music',
+      '/storage/emulated/0/Download',
+      '/storage/emulated/0/Downloads',
+      '/sdcard/Music',
+      '/sdcard/Download',
+      '/sdcard/Downloads',
+      '/storage/emulated/0/DCIM/Music',
+      '/storage/emulated/0/Documents/Music',
+      '/storage/emulated/0/WhatsApp/Media/WhatsApp Audio',
+      '/storage/emulated/0/Telegram/Telegram Audio',
+    ];
+    
+    // Add external storage directory if available
+    try {
+      final externalDir = await getExternalStorageDirectory();
+      if (externalDir != null) {
+        commonPaths.add('${externalDir.path}/Music');
+        commonPaths.add(externalDir.path);
+      }
+    } catch (e) {
+      print('Error getting external storage: $e');
+    }
+    
+    // Add directories that exist
+    for (final path in commonPaths) {
+      final dir = Directory(path);
+      if (await dir.exists()) {
+        directories.add(dir);
+      }
     }
     
     return directories;
@@ -51,7 +77,9 @@ class MusicService {
     try {
       await for (final entity in directory.list(recursive: true)) {
         if (entity is File) {
-          final extension = entity.path.toLowerCase().substring(entity.path.lastIndexOf('.'));
+          final extension = entity.path.toLowerCase().substring(
+            entity.path.lastIndexOf('.'),
+          );
           if (_supportedExtensions.contains(extension)) {
             files.add(entity);
           }
@@ -66,29 +94,50 @@ class MusicService {
 
   static Future<Song?> _createSongFromFile(File file) async {
     try {
-      final metadata = await MetadataRetriever.fromFile(file);
+      final fileName = _getFileNameWithoutExtension(file.path);
+      final fileStat = await file.stat();
+      
+      // Extract basic info from filename and path
+      final pathParts = file.path.split('/');
+      String artist = 'Unknown Artist';
+      String album = 'Unknown Album';
+      String title = fileName;
+      
+      // Try to extract artist and title from filename patterns
+      if (fileName.contains(' - ')) {
+        final parts = fileName.split(' - ');
+        if (parts.length >= 2) {
+          artist = parts[0].trim();
+          title = parts[1].trim();
+        }
+      }
+      
+      // Try to get album from parent directory
+      if (pathParts.length >= 2) {
+        final parentDir = pathParts[pathParts.length - 2];
+        if (parentDir.toLowerCase() != 'music' && 
+            parentDir.toLowerCase() != 'download' &&
+            parentDir.toLowerCase() != 'downloads') {
+          album = parentDir;
+        }
+      }
+      
+      // Estimate duration based on file size (rough approximation)
+      final fileSizeKB = fileStat.size / 1024;
+      final estimatedDuration = (fileSizeKB / 128).round(); // Assuming 128kbps average
       
       return Song(
         id: file.path.hashCode.toString(),
-        title: metadata.trackName ?? _getFileNameWithoutExtension(file.path),
-        artist: metadata.trackArtistNames?.join(', ') ?? 'Unknown Artist',
-        album: metadata.albumName ?? 'Unknown Album',
+        title: title,
+        artist: artist,
+        album: album,
         path: file.path,
-        albumArt: metadata.albumArt != null ? 
-          'data:image/jpeg;base64,${metadata.albumArt}' : null,
-        duration: metadata.trackDuration?.inSeconds ?? 0,
+        albumArt: null, // We'll generate placeholder colors instead
+        duration: estimatedDuration,
       );
     } catch (e) {
-      print('Error reading metadata for ${file.path}: $e');
-      return Song(
-        id: file.path.hashCode.toString(),
-        title: _getFileNameWithoutExtension(file.path),
-        artist: 'Unknown Artist',
-        album: 'Unknown Album',
-        path: file.path,
-        albumArt: null,
-        duration: 0,
-      );
+      print('Error creating song from ${file.path}: $e');
+      return null;
     }
   }
 
@@ -96,5 +145,75 @@ class MusicService {
     final fileName = filePath.split('/').last;
     final lastDot = fileName.lastIndexOf('.');
     return lastDot != -1 ? fileName.substring(0, lastDot) : fileName;
+  }
+
+  // Generate a consistent color for each song based on title
+  static int generateColorForSong(String title) {
+    final hash = title.hashCode;
+    final colors = [
+      0xFF6366F1, // Indigo
+      0xFF8B5CF6, // Purple
+      0xFFEC4899, // Pink
+      0xFFEF4444, // Red
+      0xFFF59E0B, // Amber
+      0xFF10B981, // Emerald
+      0xFF06B6D4, // Cyan
+      0xFF3B82F6, // Blue
+      0xFF84CC16, // Lime
+      0xFFF97316, // Orange
+    ];
+    return colors[hash.abs() % colors.length];
+  }
+
+  // Search songs by title, artist, or album
+  static List<Song> searchSongs(List<Song> songs, String query) {
+    if (query.isEmpty) return songs;
+    
+    final lowerQuery = query.toLowerCase();
+    return songs.where((song) {
+      return song.title.toLowerCase().contains(lowerQuery) ||
+             song.artist.toLowerCase().contains(lowerQuery) ||
+             song.album.toLowerCase().contains(lowerQuery);
+    }).toList();
+  }
+
+  // Group songs by artist
+  static Map<String, List<Song>> groupSongsByArtist(List<Song> songs) {
+    final Map<String, List<Song>> grouped = {};
+    for (final song in songs) {
+      if (!grouped.containsKey(song.artist)) {
+        grouped[song.artist] = [];
+      }
+      grouped[song.artist]!.add(song);
+    }
+    return grouped;
+  }
+
+  // Group songs by album
+  static Map<String, List<Song>> groupSongsByAlbum(List<Song> songs) {
+    final Map<String, List<Song>> grouped = {};
+    for (final song in songs) {
+      if (!grouped.containsKey(song.album)) {
+        grouped[song.album] = [];
+      }
+      grouped[song.album]!.add(song);
+    }
+    return grouped;
+  }
+
+  // Get recently played songs (placeholder - would use shared preferences)
+  static List<Song> getRecentlyPlayed(List<Song> allSongs) {
+    // For now, return random songs as "recently played"
+    final shuffled = List<Song>.from(allSongs);
+    shuffled.shuffle(Random());
+    return shuffled.take(10).toList();
+  }
+
+  // Get most played songs (placeholder)
+  static List<Song> getMostPlayed(List<Song> allSongs) {
+    // For now, return random songs as "most played"
+    final shuffled = List<Song>.from(allSongs);
+    shuffled.shuffle(Random());
+    return shuffled.take(10).toList();
   }
 }

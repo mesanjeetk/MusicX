@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_provider.dart';
+import '../services/music_service.dart';
 
 class MiniPlayer extends StatelessWidget {
   final VoidCallback onTap;
@@ -36,20 +37,13 @@ class MiniPlayer extends StatelessWidget {
                   margin: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    color: Colors.grey[300],
+                    color: Color(MusicService.generateColorForSong(song.title)),
                   ),
-                  child: song.albumArt != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.memory(
-                            Uri.parse(song.albumArt!).data!.contentAsBytes(),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(Icons.music_note);
-                            },
-                          ),
-                        )
-                      : const Icon(Icons.music_note),
+                  child: Icon(
+                    Icons.music_note,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 Expanded(
                   child: Padding(

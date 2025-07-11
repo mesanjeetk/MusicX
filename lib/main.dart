@@ -5,6 +5,7 @@ import 'providers/music_provider.dart';
 import 'services/audio_handler.dart';
 import 'widgets/permission_handler_widget.dart';
 import 'screens/home_screen.dart';
+import 'services/sleep_timer_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,8 +31,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => MusicProvider(audioHandler),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => MusicProvider(audioHandler)),
+        ChangeNotifierProvider(create: (context) => SleepTimerService()),
+      ],
       child: MaterialApp(
         title: 'Music Player',
         debugShowCheckedModeBanner: false,

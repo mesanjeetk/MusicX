@@ -4,6 +4,7 @@ import '../models/song.dart';
 import '../services/audio_handler.dart';
 import '../services/music_service.dart';
 import '../services/permission_service.dart';
+import '../services/playlist_service.dart';
 
 class MusicProvider extends ChangeNotifier {
   final MusicAudioHandler _audioHandler;
@@ -16,6 +17,8 @@ class MusicProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isShuffleEnabled = false;
   RepeatMode _repeatMode = RepeatMode.off;
+  List<Song> _queue = [];
+  List<Song> _originalQueue = [];
 
   // Getters
   List<Song> get songs => _songs;
@@ -26,6 +29,7 @@ class MusicProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isShuffleEnabled => _isShuffleEnabled;
   RepeatMode get repeatMode => _repeatMode;
+  List<Song> get queue => _queue;
 
   MusicProvider(this._audioHandler) {
     _init();
@@ -89,6 +93,11 @@ class MusicProvider extends ChangeNotifier {
   Future<void> playSong(Song song) async {
     final index = _songs.indexWhere((s) => s.id == song.id);
     if (index != -1) {
+      // Add to recently played
+      await PlaylistService.addToRecentlyPlayed(song.id);
+      // Increment play count
+      await PlaylistService.incrementPlayCount(song.id);
+      
       await _audioHandler.playFromIndex(index);
     }
   }
@@ -107,8 +116,33 @@ class MusicProvider extends ChangeNotifier {
 
   void toggleShuffle() {
     _isShuffleEnabled = !_isShuffleEnabled;
+    
+    if (_isShuffleEnabled) {
+      // Save original order
+      _originalQueue = List.from(_songs);
+      // Shuffle songs
+      final currentSong = _currentSong;
+      final shuffledSongs = List<Song>.from(_songs);
+      shuffledSongs.shuffle();
+      
+      // Move current song to first position if playing
+      if (currentSong != null) {
+        shuffledSongs.remove(currentSong);
+        shuffledSongs.insert(0, currentSong);
+      }
+      
+      _songs = shuffledSongs;
+      _audioHandler.setSongs(_songs);
+    } else {
+      // Restore original order
+      if (_originalQueue.isNotEmpty) {
+        _songs = _originalQueue;
+        _audioHandler.setSongs(_songs);
+        _originalQueue.clear();
+      }
+    }
+    
     notifyListeners();
-    // Implement shuffle logic here
   }
 
   void toggleRepeat() {
@@ -124,7 +158,29 @@ class MusicProvider extends ChangeNotifier {
         break;
     }
     notifyListeners();
-    // Implement repeat logic here
+  }
+
+  // Queue management
+  void addToQueue(Song song) {
+    _queue.add(song);
+    notifyListeners();
+  }
+
+  void removeFromQueue(int index) {
+    if (index >= 0 && index < _queue.length) {
+      _queue.removeAt(index);
+      notifyListeners();
+    }
+  }
+
+  void clearQueue() {
+    _queue.clear();
+    notifyListeners();
+  }
+
+  // Search functionality
+  List<Song> searchSongs(String query) {
+    return MusicService.searchSongs(_songs, query);
   }
 
   String formatDuration(Duration duration) {

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_provider.dart';
+import '../services/music_service.dart';
+import '../services/sleep_timer_service.dart';
+import './sleep_timer_dialog.dart';
 
 class PlayerScreen extends StatelessWidget {
   const PlayerScreen({super.key});
@@ -53,9 +56,7 @@ class PlayerScreen extends StatelessWidget {
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.more_vert, color: Colors.white),
-                          onPressed: () {
-                            // Show options
-                          },
+                          onPressed: () => _showPlayerOptions(context),
                         ),
                       ],
                     ),
@@ -76,32 +77,18 @@ class PlayerScreen extends StatelessWidget {
                           blurRadius: 15,
                         ),
                       ],
+                      color: Color(MusicService.generateColorForSong(song.title)),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
-                      child: song.albumArt != null
-                          ? Image.memory(
-                              Uri.parse(song.albumArt!).data!.contentAsBytes(),
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(
-                                    Icons.music_note,
-                                    size: 100,
-                                    color: Colors.grey,
-                                  ),
-                                );
-                              },
-                            )
-                          : Container(
-                              color: Colors.grey[300],
-                              child: const Icon(
+                      child: Container(
+                        color: Color(MusicService.generateColorForSong(song.title)),
+                        child: const Icon(
                                 Icons.music_note,
-                                size: 100,
-                                color: Colors.grey,
+                          size: 100,
+                          color: Colors.white,
                               ),
-                            ),
+                      ),
                     ),
                   ),
                   
@@ -272,5 +259,45 @@ class PlayerScreen extends StatelessWidget {
       case RepeatMode.one:
         return Icons.repeat_one;
     }
+  }
+
+  void _showPlayerOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.timer),
+            title: const Text('Sleep Timer'),
+            onTap: () {
+              Navigator.pop(context);
+              showDialog(
+                context: context,
+                builder: (context) => const SleepTimerDialog(),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.equalizer),
+            title: const Text('Equalizer'),
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Equalizer coming soon!')),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.share),
+            title: const Text('Share Song'),
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: Implement share
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

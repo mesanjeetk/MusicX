@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song.dart';
 import '../providers/music_provider.dart';
+import '../services/music_service.dart';
+import '../services/playlist_service.dart';
 
 class SongList extends StatelessWidget {
   final List<Song> songs;
@@ -26,20 +28,13 @@ class SongList extends StatelessWidget {
                 height: 50,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey[300],
+                  color: Color(MusicService.generateColorForSong(song.title)),
                 ),
-                child: song.albumArt != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(
-                          Uri.parse(song.albumArt!).data!.contentAsBytes(),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.music_note);
-                          },
-                        ),
-                      )
-                    : const Icon(Icons.music_note),
+                child: Icon(
+                  Icons.music_note,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
               title: Text(
                 song.title,
@@ -61,6 +56,29 @@ class SongList extends StatelessWidget {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Favorite button
+                  FutureBuilder<bool>(
+                    future: PlaylistService.isFavorite(song.id),
+                    builder: (context, snapshot) {
+                      final isFavorite = snapshot.data ?? false;
+                      return IconButton(
+                        icon: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite ? Colors.red : Colors.grey,
+                          size: 20,
+                        ),
+                        onPressed: () async {
+                          if (isFavorite) {
+                            await PlaylistService.removeFromFavorites(song.id);
+                          } else {
+                            await PlaylistService.addToFavorites(song.id);
+                          }
+                          // Trigger rebuild
+                          (context as Element).markNeedsBuild();
+                        },
+                      );
+                    },
+                  ),
                   if (song.duration > 0)
                     Text(
                       musicProvider.formatDuration(Duration(seconds: song.duration)),
@@ -107,7 +125,10 @@ class SongList extends StatelessWidget {
               title: const Text('Add to Queue'),
               onTap: () {
                 Navigator.pop(context);
-                // Implement add to queue
+                Provider.of<MusicProvider>(context, listen: false).addToQueue(song);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${song.title} added to queue')),
+                );
               },
             ),
             ListTile(
@@ -115,7 +136,7 @@ class SongList extends StatelessWidget {
               title: const Text('Add to Playlist'),
               onTap: () {
                 Navigator.pop(context);
-                // Implement add to playlist
+                _showAddToPlaylistDialog(context, song);
               },
             ),
             ListTile(
@@ -123,12 +144,29 @@ class SongList extends StatelessWidget {
               title: const Text('Share'),
               onTap: () {
                 Navigator.pop(context);
+                // TODO: Implement share functionality
                 // Implement share
               },
             ),
           ],
         );
       },
+    );
+  }
+
+  void _showAddToPlaylistDialog(BuildContext context, Song song) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add to Playlist'),
+        content: const Text('Playlist feature coming soon!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }
