@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -15,7 +14,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      title: 'Music Scanner with Cache',
+      debugShowCheckedModeBanner: false,
+      title: 'Music Scanner',
       home: MusicScannerPage(),
     );
   }
@@ -31,6 +31,7 @@ class _MusicScannerPageState extends State<MusicScannerPage> {
   List<String> musicPaths = [];
   final List<String> validExtensions = ['mp3', 'wav', 'm4a', 'ogg'];
   late File cacheFile;
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -43,13 +44,21 @@ class _MusicScannerPageState extends State<MusicScannerPage> {
     cacheFile = File('${dir.path}/music_cache.json');
 
     if (await cacheFile.exists()) {
-      final content = await cacheFile.readAsString();
-      final List<dynamic> data = jsonDecode(content);
-      setState(() {
-        musicPaths = List<String>.from(data);
-      });
+      try {
+        final content = await cacheFile.readAsString();
+        final List<dynamic> data = jsonDecode(content);
+        setState(() {
+          musicPaths = List<String>.from(data);
+          isLoading = false;
+        });
+        debugPrint("Loaded ${musicPaths.length} songs from cache.");
+      } catch (e) {
+        debugPrint("Error reading cache: $e");
+        await requestPermissionAndScan(); // fallback
+      }
     } else {
-      requestPermissionAndScan();
+      debugPrint("No cache file found. Scanning storage...");
+      await requestPermissionAndScan();
     }
   }
 
@@ -58,31 +67,31 @@ class _MusicScannerPageState extends State<MusicScannerPage> {
     final androidInfo = await deviceInfo.androidInfo;
     final sdkInt = androidInfo.version.sdkInt;
 
-    bool granted = false;
-
+    PermissionStatus status;
     if (sdkInt >= 33) {
-      granted = await Permission.audio.request().isGranted;
+      status = await Permission.audio.request();
     } else {
-      granted = await Permission.storage.request().isGranted;
+      status = await Permission.storage.request();
     }
 
-    if (granted) {
-      scanAndCacheMusic();
+    if (status.isGranted) {
+      await scanAndCacheMusic();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permission denied')),
-      );
+      debugPrint("Permission denied.");
+      if (!status.isPermanentlyDenied) {
+        openAppSettings();
+      }
+      setState(() => isLoading = false);
     }
   }
 
   Future<void> scanAndCacheMusic() async {
+    debugPrint("Scanning entire storage for music...");
     List<String> foundPaths = [];
-
     final root = Directory('/storage/emulated/0');
 
     try {
-      await for (FileSystemEntity entity
-          in root.list(recursive: true, followLinks: false)) {
+      await for (FileSystemEntity entity in root.list(recursive: true)) {
         if (entity is File) {
           final path = entity.path.toLowerCase();
           if (validExtensions.any((ext) => path.endsWith('.$ext'))) {
@@ -91,18 +100,25 @@ class _MusicScannerPageState extends State<MusicScannerPage> {
         }
       }
     } catch (e) {
-      debugPrint("Error scanning: $e");
+      debugPrint("Error scanning storage: $e");
     }
 
-    // Save to state and cache
+    debugPrint("Scan complete. Found ${foundPaths.length} songs.");
     setState(() {
       musicPaths = foundPaths;
+      isLoading = false;
     });
 
-    await cacheFile.writeAsString(jsonEncode(musicPaths));
+    try {
+      await cacheFile.writeAsString(jsonEncode(foundPaths));
+      debugPrint("Cache saved to: ${cacheFile.path}");
+    } catch (e) {
+      debugPrint("Failed to save cache: $e");
+    }
   }
 
   Future<void> refreshManually() async {
+    setState(() => isLoading = true);
     await scanAndCacheMusic();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Music list refreshed")),
@@ -118,22 +134,24 @@ class _MusicScannerPageState extends State<MusicScannerPage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: refreshManually,
-          )
+          ),
         ],
       ),
-      body: musicPaths.isEmpty
+      body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: musicPaths.length,
-              itemBuilder: (context, index) {
-                final path = musicPaths[index];
-                return ListTile(
-                  leading: const Icon(Icons.music_note),
-                  title: Text(path.split('/').last),
-                  subtitle: Text(path),
-                );
-              },
-            ),
+          : musicPaths.isEmpty
+              ? const Center(child: Text("No music files found."))
+              : ListView.builder(
+                  itemCount: musicPaths.length,
+                  itemBuilder: (context, index) {
+                    final path = musicPaths[index];
+                    return ListTile(
+                      leading: const Icon(Icons.music_note),
+                      title: Text(path.split('/').last),
+                      subtitle: Text(path),
+                    );
+                  },
+                ),
     );
   }
 }
