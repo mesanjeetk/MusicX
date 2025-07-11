@@ -76,7 +76,7 @@ class _FullPlayerPageState extends State<FullPlayerPage>
                     // Rotating Artwork with Border
                     _RotatingBorder(
                       controller: _controller,
-                      child: Image.asset(
+                      child: const Image.asset(
                         'assets/logo.png',
                         fit: BoxFit.cover,
                       ),
