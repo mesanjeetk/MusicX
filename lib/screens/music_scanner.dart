@@ -167,10 +167,13 @@ class _MusicScannerState extends State<MusicScanner> {
                         itemBuilder: (context, index) {
                           final file = _musicFiles[index];
                           return ListTile(
-                            title: Text(file.path.split('/').last),
+                            title: Text(file.path.split('/').last..replaceAll(RegExp(r'\.(mp3|wav|m4a|ogg)$', caseSensitive: false), '')),
                             leading: const Icon(Icons.music_note),
                             onTap: () {
-                              playback.setPlaylist(_musicFiles, index);
+                              final isSameSong = playback.currentSong?.path == file.path;
+                              if (!isSameSong) {
+                                playback.setPlaylist(_musicFiles, index);
+                              }
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
