@@ -14,10 +14,8 @@ class MusicScanner extends StatefulWidget {
   State<MusicScanner> createState() => _MusicScannerState();
 }
 
-class _MusicScannerState extends State<MusicScanner> with WidgetsBindingObserver {
-  List<FileSystemEntity> musicFiles = [];
-  bool isLoading = true;
-
+class _MusicScannerState extends State<MusicScanner> {
+  final List<FileSystemEntity> _musicFiles = [];
   final List<String> validExtensions = ['mp3', 'wav', 'm4a', 'ogg'];
   final List<String> targetPaths = [
     '/storage/emulated/0/Download',
@@ -26,58 +24,59 @@ class _MusicScannerState extends State<MusicScanner> with WidgetsBindingObserver
     '/storage/emulated/0/WhatsApp/Media/WhatsApp Audio',
   ];
 
+  bool _loading = true;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _initialize();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _initialize(); // Recheck permissions when returning to app
-    }
-  }
-
   Future<void> _initialize() async {
-    setState(() => isLoading = true);
-
+    setState(() => _loading = true);
     final granted = await PermissionService.ensureAllPermissions();
     if (!granted) {
-      setState(() => isLoading = false);
+      setState(() => _loading = false);
       return;
     }
 
-    scanFolders();
+    _scanParentDirectories();
+    _scanSubDirectoriesAsync();
   }
 
-  Future<void> scanFolders() async {
-    List<FileSystemEntity> allFiles = [];
-
-    for (String path in targetPaths) {
+  void _scanParentDirectories() async {
+    for (final path in targetPaths) {
       final dir = Directory(path);
       if (await dir.exists()) {
-        try {
-          final files = dir.listSync(recursive: true);
-          allFiles.addAll(files.where((f) {
-            final p = f.path.toLowerCase();
-            return validExtensions.any((ext) => p.endsWith('.$ext'));
-          }));
-        } catch (_) {}
+        final entries = dir.listSync(recursive: false);
+        final newSongs = entries.where(_isValidAudio).toList();
+        setState(() {
+          _musicFiles.addAll(newSongs);
+        });
       }
     }
 
-    setState(() {
-      musicFiles = allFiles;
-      isLoading = false;
-    });
+    setState(() => _loading = false);
+  }
+
+  void _scanSubDirectoriesAsync() {
+    for (final path in targetPaths) {
+      final dir = Directory(path);
+      if (dir.existsSync()) {
+        dir.list(recursive: true, followLinks: false).listen((file) {
+          if (_isValidAudio(file) && !_musicFiles.contains(file)) {
+            setState(() {
+              _musicFiles.add(file);
+            });
+          }
+        });
+      }
+    }
+  }
+
+  bool _isValidAudio(FileSystemEntity file) {
+    final lower = file.path.toLowerCase();
+    return validExtensions.any((ext) => lower.endsWith('.$ext'));
   }
 
   Widget _buildMiniPlayer(PlaybackManager playback) {
@@ -127,18 +126,14 @@ class _MusicScannerState extends State<MusicScanner> with WidgetsBindingObserver
       body: Column(
         children: [
           Expanded(
-            child: isLoading
+            child: _loading && _musicFiles.isEmpty
                 ? const Center(child: CircularProgressIndicator())
-                : musicFiles.isEmpty
+                : _musicFiles.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              "Permission denied or no music files found.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 16),
-                            ),
+                            const Text("No music files found."),
                             const SizedBox(height: 12),
                             ElevatedButton.icon(
                               onPressed: () => openAppSettings(),
@@ -149,14 +144,14 @@ class _MusicScannerState extends State<MusicScanner> with WidgetsBindingObserver
                         ),
                       )
                     : ListView.builder(
-                        itemCount: musicFiles.length,
+                        itemCount: _musicFiles.length,
                         itemBuilder: (context, index) {
-                          final file = musicFiles[index];
+                          final file = _musicFiles[index];
                           return ListTile(
                             title: Text(file.path.split('/').last),
                             leading: const Icon(Icons.music_note),
                             onTap: () {
-                              playback.setPlaylist(musicFiles, index);
+                              playback.setPlaylist(_musicFiles, index);
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
