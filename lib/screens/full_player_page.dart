@@ -66,7 +66,7 @@ class _FullPlayerPageState extends State<FullPlayerPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: StreamBuilder<Duration>(
+      body: StreamBuilder<Duration?>(
         stream: widget.player.durationStream,
         builder: (context, snapshot) {
           final total = snapshot.data ?? Duration.zero;
