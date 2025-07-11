@@ -1,62 +1,24 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:provider/provider.dart';
+import '../services/playback_manager.dart';
 
-class FullPlayerPage extends StatefulWidget {
-  final List<FileSystemEntity> musicFiles;
-  final int currentIndex;
-  final AudioPlayer player;
+class FullPlayerPage extends StatelessWidget {
+  const FullPlayerPage({super.key});
 
-  const FullPlayerPage({
-    super.key,
-    required this.musicFiles,
-    required this.currentIndex,
-    required this.player,
-  });
-
-  @override
-  State<FullPlayerPage> createState() => _FullPlayerPageState();
-}
-
-class _FullPlayerPageState extends State<FullPlayerPage> {
-  late int currentIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    currentIndex = widget.currentIndex;
-    _playCurrent();
-  }
-
-  Future<void> _playCurrent() async {
-    final path = widget.musicFiles[currentIndex].path;
-    await widget.player.setFilePath(path);
-    widget.player.play();
-    setState(() {});
-  }
-
-  void _playNext() {
-    if (currentIndex < widget.musicFiles.length - 1) {
-      currentIndex++;
-      _playCurrent();
-    }
-  }
-
-  void _playPrevious() {
-    if (currentIndex > 0) {
-      currentIndex--;
-      _playCurrent();
-    }
-  }
-
-  String _formatDuration(Duration d) {
-    return d.toString().split('.').first.padLeft(8, "0");
-  }
+  String _formatDuration(Duration d) =>
+      d.toString().split('.').first.padLeft(8, "0");
 
   @override
   Widget build(BuildContext context) {
-    final file = widget.musicFiles[currentIndex];
-    final fileName = file.path.split('/').last;
+    final playback = Provider.of<PlaybackManager>(context);
+    final song = playback.currentSong;
+
+    if (song == null) {
+      return const Scaffold(
+        body: Center(child: Text("No song is currently playing.")),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -67,15 +29,14 @@ class _FullPlayerPageState extends State<FullPlayerPage> {
         ),
       ),
       body: StreamBuilder<Duration?>(
-        stream: widget.player.durationStream,
-        builder: (context, snapshot) {
-          final total = snapshot.data ?? Duration.zero;
-
+        stream: playback.durationStream,
+        builder: (context, durSnap) {
+          final total = durSnap.data ?? Duration.zero;
           return StreamBuilder<Duration>(
-            stream: widget.player.positionStream,
-            builder: (context, posSnapshot) {
-              final position = posSnapshot.data ?? Duration.zero;
-              final clampedPos = position > total ? total : position;
+            stream: playback.positionStream,
+            builder: (context, posSnap) {
+              final position = posSnap.data ?? Duration.zero;
+              final clamped = position > total ? total : position;
 
               return Padding(
                 padding: const EdgeInsets.all(20),
@@ -84,62 +45,50 @@ class _FullPlayerPageState extends State<FullPlayerPage> {
                   children: [
                     const Icon(Icons.music_note, size: 100),
                     const SizedBox(height: 20),
-                    Text(fileName,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 20)),
+                    Text(
+                      song.path.split('/').last,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 20),
+                    ),
                     const SizedBox(height: 20),
-
                     Slider(
-                      value: clampedPos.inSeconds.toDouble(),
+                      value: clamped.inSeconds.toDouble(),
                       min: 0,
                       max: total.inSeconds.toDouble(),
-                      onChanged: (value) {
-                        widget.player.seek(Duration(seconds: value.toInt()));
-                      },
+                      onChanged: (v) =>
+                          playback.seekTo(Duration(seconds: v.toInt())),
                     ),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(_formatDuration(clampedPos)),
+                        Text(_formatDuration(clamped)),
                         Text(_formatDuration(total)),
                       ],
                     ),
                     const SizedBox(height: 20),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         IconButton(
                           icon: const Icon(Icons.skip_previous, size: 40),
-                          onPressed: currentIndex > 0 ? _playPrevious : null,
+                          onPressed: playback.playPrevious,
                         ),
                         StreamBuilder<bool>(
-                          stream: widget.player.playingStream,
+                          stream: playback.playingStream,
                           builder: (context, snapshot) {
                             final isPlaying = snapshot.data ?? false;
                             return IconButton(
                               iconSize: 64,
-                              icon: Icon(
-                                isPlaying
-                                    ? Icons.pause_circle
-                                    : Icons.play_circle,
-                              ),
-                              onPressed: () {
-                                if (isPlaying) {
-                                  widget.player.pause();
-                                } else {
-                                  widget.player.play();
-                                }
-                              },
+                              icon: Icon(isPlaying
+                                  ? Icons.pause_circle
+                                  : Icons.play_circle),
+                              onPressed: playback.togglePlayPause,
                             );
                           },
                         ),
                         IconButton(
                           icon: const Icon(Icons.skip_next, size: 40),
-                          onPressed: currentIndex < widget.musicFiles.length - 1
-                              ? _playNext
-                              : null,
+                          onPressed: playback.playNext,
                         ),
                       ],
                     ),
