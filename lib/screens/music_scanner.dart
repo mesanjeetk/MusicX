@@ -108,7 +108,7 @@ class _MusicScannerState extends State<MusicScanner> {
         MaterialPageRoute(builder: (_) => const FullPlayerPage()),
       ),
       child: Container(
-        color: Colors.grey[300],
+        color: Colors.grey[900],
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
@@ -140,7 +140,21 @@ class _MusicScannerState extends State<MusicScanner> {
   Widget build(BuildContext context) {
     final playback = Provider.of<PlaybackManager>(context);
 
-    return Scaffold(
+    return Theme(
+    data: Theme.of(context).copyWith(
+      colorScheme: ColorScheme.dark(),
+      scaffoldBackgroundColor: Colors.black,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      iconTheme: const IconThemeData(color: Colors.white),
+      textTheme: const TextTheme(
+        bodyMedium: TextStyle(color: Colors.white),
+        bodyLarge: TextStyle(color: Colors.white),
+        titleLarge: TextStyle(color: Colors.white),
+      ),
+    ), child: Scaffold(
       appBar: AppBar(title: const Text("Music Files")),
       body: Column(
         children: [
@@ -188,6 +202,6 @@ class _MusicScannerState extends State<MusicScanner> {
           _buildMiniPlayer(playback),
         ],
       ),
-    );
+    ));
   }
 }

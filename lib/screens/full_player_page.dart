@@ -51,6 +51,8 @@ class _FullPlayerPageState extends State<FullPlayerPage>
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
         title: const Text("Now Playing"),
         leading: IconButton(
           icon: const Icon(Icons.keyboard_arrow_down),
