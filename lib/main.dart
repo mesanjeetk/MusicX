@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 // import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 import 'services/playback_manager.dart';
-import 'screens/music_scanner.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   // WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Music App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const MusicScanner(),
+      home: const SplashScreen(),
     );
   }
 }

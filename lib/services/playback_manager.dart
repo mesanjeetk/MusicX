@@ -19,10 +19,22 @@ class PlaybackManager extends ChangeNotifier {
   Stream<Duration?> get durationStream => player.durationStream;
   Stream<Duration> get positionStream => player.positionStream;
 
+  PlaybackManager() {
+    player.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        _handleSongEnd();
+      }
+    });
+  }
+
   void setPlaylist(List<FileSystemEntity> songs, int index) {
     _songs = songs;
     _currentIndex = index;
     _playCurrent();
+  }
+  String _cleanFileName(String path) {
+    final name = path.split('/').last;
+    return name.replaceAll(RegExp(r'\.(mp3|wav|m4a|ogg)$', caseSensitive: false), '');
   }
 
   Future<void> _playCurrent() async {
@@ -30,25 +42,36 @@ class PlaybackManager extends ChangeNotifier {
 
     final file = _songs[_currentIndex];
     final path = file.path;
-    final fileName = path.split('/').last;
 
     await player.setAudioSource(
       AudioSource.uri(
         Uri.file(path),
         tag: MediaItem(
           id: path,
-          title: fileName,
+          title: _cleanFileName(path),
           artist: 'Unknown Artist',
           album: 'Local Files',
           artUri: Uri.parse(
             'https://via.placeholder.com/300x300.png?text=No+Artwork',
-          ), // Placeholder artwork
+          ),
         ),
       ),
     );
 
     await player.play();
     notifyListeners();
+  }
+
+  void _handleSongEnd() {
+    if (_songs.isEmpty) return;
+
+    if (_currentIndex < _songs.length - 1) {
+      _currentIndex++;
+    } else {
+      _currentIndex = 0; 
+    }
+
+    _playCurrent();
   }
 
   void togglePlayPause() {
@@ -60,10 +83,13 @@ class PlaybackManager extends ChangeNotifier {
   }
 
   void playNext() {
+    if (_songs.isEmpty) return;
     if (_currentIndex < _songs.length - 1) {
       _currentIndex++;
-      _playCurrent();
+    } else {
+      _currentIndex = 0;
     }
+    _playCurrent();
   }
 
   void playPrevious() {
