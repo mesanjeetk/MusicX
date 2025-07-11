@@ -1,75 +1,127 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:audio_service/audio_service.dart';
+import 'package:on_audio_query/on_audio_query.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'screens/home_screen.dart';
-import 'services/audio_handler.dart';
-import 'services/music_service.dart';
-import 'providers/music_provider.dart';
+import 'dart:io';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Request permissions
-  await _requestPermissions();
-  
-  // Initialize audio service
-  final audioHandler = await AudioService.init(
-    builder: () => MusicAudioHandler(),
-    config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.example.music_player.channel.audio',
-      androidNotificationChannelName: 'Music Player',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
-    ),
-  );
-  
-  runApp(MusicPlayerApp(audioHandler: audioHandler));
+void main() {
+  runApp(const MyApp());
 }
 
-Future<void> _requestPermissions() async {
-  final permissions = <Permission>[
-    Permission.storage,
-    Permission.manageExternalStorage,
-    Permission.notification,
-  ];
-  
-  // For Android 13+ (API 33+)
-  if (await Permission.audio.isPermanentlyDenied == false) {
-    permissions.add(Permission.audio);
-  }
-  
-  await permissions.request();
-}
-
-class MusicPlayerApp extends StatelessWidget {
-  final AudioHandler audioHandler;
-  
-  const MusicPlayerApp({Key? key, required this.audioHandler}) : super(key: key);
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        Provider<AudioHandler>.value(value: audioHandler),
-        ChangeNotifierProvider(create: (_) => MusicProvider()),
-        Provider(create: (_) => MusicService()),
-      ],
-      child: MaterialApp(
-        title: 'Music Player',
-        theme: ThemeData(
-          primarySwatch: Colors.purple,
-          useMaterial3: true,
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: const Color(0xFF1a1a1a),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF2a2a2a),
-            elevation: 0,
+    return MaterialApp(
+      title: 'All Audio Files',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const AudioListPage(),
+    );
+  }
+}
+
+class AudioListPage extends StatefulWidget {
+  const AudioListPage({super.key});
+
+  @override
+  State<AudioListPage> createState() => _AudioListPageState();
+}
+
+class _AudioListPageState extends State<AudioListPage> {
+  final OnAudioQuery _audioQuery = OnAudioQuery();
+  List<SongModel> _songs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    requestPermissions();
+  }
+
+  Future<void> requestPermissions() async {
+    if (Platform.isAndroid) {
+      if (await _checkAudioPermission()) {
+        fetchSongs();
+      } else {
+        _showPermissionDeniedDialog();
+      }
+    }
+  }
+
+  Future<bool> _checkAudioPermission() async {
+    // For Android 13+ use READ_MEDIA_AUDIO
+    if (Platform.isAndroid && androidInfo != null && androidInfo!.version.sdkInt >= 33) {
+      final status = await Permission.audio.request();
+      return status.isGranted;
+    }
+
+    // For Android < 13 use storage
+    final status = await Permission.storage.request();
+    return status.isGranted;
+  }
+
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Permission Required"),
+        content: const Text(
+            "This app needs permission to read your music files. Please grant it from app settings."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              openAppSettings();
+              Navigator.of(context).pop();
+            },
+            child: const Text("Open Settings"),
           ),
-        ),
-        home: const HomeScreen(),
-        debugShowCheckedModeBanner: false,
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Cancel"),
+          )
+        ],
       ),
+    );
+  }
+
+  Future<void> fetchSongs() async {
+    final songs = await _audioQuery.querySongs();
+    setState(() {
+      _songs = songs;
+    });
+  }
+
+  AndroidDeviceInfo? androidInfo;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadDeviceInfo();
+  }
+
+  void _loadDeviceInfo() async {
+    final info = await DeviceInfoPlugin().androidInfo;
+    setState(() {
+      androidInfo = info;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("All Songs")),
+      body: _songs.isEmpty
+          ? const Center(child: Text("No Songs Found or Permission Not Granted"))
+          : ListView.builder(
+              itemCount: _songs.length,
+              itemBuilder: (context, index) {
+                final song = _songs[index];
+                return ListTile(
+                  leading: const Icon(Icons.music_note),
+                  title: Text(song.title),
+                  subtitle: Text(song.artist ?? "Unknown Artist"),
+                );
+              },
+            ),
     );
   }
 }
