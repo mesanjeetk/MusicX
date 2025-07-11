@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -43,16 +43,27 @@ class _MusicScannerPageState extends State<MusicScannerPage> {
   }
 
   Future<void> requestPermissionAndScan() async {
-    final status = await Permission.storage.request();
-
-    if (status.isGranted) {
+    final deviceInfo = DeviceInfoPlugin();
+    final androidInfo = await deviceInfo.androidInfo;
+    final sdkInt = androidInfo.version.sdkInt;
+  
+    bool granted = false;
+  
+    if (sdkInt >= 33) {
+      granted = await Permission.audio.request().isGranted;
+    } else {
+      granted = await Permission.storage.request().isGranted;
+    }
+  
+    if (granted) {
       scanMultipleFolders();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Storage permission denied')),
+        const SnackBar(content: Text('Permission denied')),
       );
     }
   }
+
 
   Future<void> scanMultipleFolders() async {
     List<FileSystemEntity> foundFiles = [];
