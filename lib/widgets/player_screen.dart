@@ -293,8 +293,48 @@ class PlayerScreen extends StatelessWidget {
             title: const Text('Share Song'),
             onTap: () {
               Navigator.pop(context);
-              // TODO: Implement share
+              _shareSong(context, song);
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _shareSong(BuildContext context, Song song) {
+    final shareText = '''
+🎵 Now listening to:
+
+🎤 ${song.title}
+👤 ${song.artist}
+💿 ${song.album}
+
+Shared from Music Player App
+    '''.trim();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Share Song'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(shareText),
+            const SizedBox(height: 16),
+            const Text(
+              'Song info ready to share!',
+              style: TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),

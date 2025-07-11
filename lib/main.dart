@@ -11,7 +11,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize audio service
-  final audioHandler = await AudioService.init(
+  final audioHandler = await AudioService.init<MusicAudioHandler>(
     builder: () => MusicAudioHandler(),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.musicplayer.channel.audio',
@@ -25,7 +25,7 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  final AudioHandler audioHandler;
+  final MusicAudioHandler audioHandler;
   
   const MyApp({super.key, required this.audioHandler});
 

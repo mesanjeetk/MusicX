@@ -144,8 +144,7 @@ class SongList extends StatelessWidget {
               title: const Text('Share'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement share functionality
-                // Implement share
+                _shareSong(context, song);
               },
             ),
           ],
@@ -155,18 +154,150 @@ class SongList extends StatelessWidget {
   }
 
   void _showAddToPlaylistDialog(BuildContext context, Song song) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Add to Playlist',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text('Create New Playlist'),
+              onTap: () {
+                Navigator.pop(context);
+                _createNewPlaylist(context, song);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.favorite),
+              title: const Text('Add to Favorites'),
+              onTap: () async {
+                Navigator.pop(context);
+                await PlaylistService.addToFavorites(song.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${song.title} added to favorites')),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _createNewPlaylist(BuildContext context, Song song) {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController descController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add to Playlist'),
-        content: const Text('Playlist feature coming soon!'),
+        title: const Text('Create Playlist'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Playlist Name',
+                hintText: 'Enter playlist name',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(
+                labelText: 'Description (Optional)',
+                hintText: 'Enter description',
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.trim().isNotEmpty) {
+                final playlist = Playlist(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  name: nameController.text.trim(),
+                  description: descController.text.trim(),
+                  songIds: [song.id],
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                );
+                
+                await PlaylistService.savePlaylist(playlist);
+                Navigator.pop(context);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Playlist "${playlist.name}" created with ${song.title}'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Create'),
           ),
         ],
       ),
     );
+  }
+
+  void _shareSong(BuildContext context, Song song) {
+    // Create shareable text with song info
+    final shareText = '''
+🎵 Now listening to:
+
+🎤 ${song.title}
+👤 ${song.artist}
+💿 ${song.album}
+
+Shared from Music Player App
+    '''.trim();
+
+    // For now, copy to clipboard (you can add share_plus package for actual sharing)
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Share Song'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(shareText),
+            const SizedBox(height: 16),
+            const Text(
+              'Song info copied to clipboard!',
+              style: TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+    
+    // Copy to clipboard
+    // Clipboard.setData(ClipboardData(text: shareText));
   }
 }

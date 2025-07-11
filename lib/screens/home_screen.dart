@@ -105,10 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Storage permission required to load music'),
-                          action: SnackBarAction(
-                            label: 'Grant',
-                            onPressed: null, // Will be handled by permission widget
-                          ),
                         ),
                       );
                     }
@@ -117,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.more_vert),
                   onPressed: () {
-                    // Implement menu
+                    _showAppMenu(context);
                   },
                 ),
               ],
@@ -180,32 +176,50 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, musicProvider, child) {
         final albumGroups = MusicService.groupSongsByAlbum(musicProvider.songs);
         
-        return ListView.builder(
-          itemCount: albumGroups.length,
-          itemBuilder: (context, index) {
-            final albumName = albumGroups.keys.elementAt(index);
-            final albumSongs = albumGroups[albumName]!;
-            
-            return Card(
-              margin: const EdgeInsets.all(8),
-              child: ListTile(
-                leading: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    color: Color(MusicService.generateColorForSong(albumName)),
-                  ),
-                  child: const Icon(Icons.album, color: Colors.white),
+        return CustomScrollView(
+          slivers: [
+            const SliverAppBar(
+              floating: true,
+              snap: true,
+              title: Text('Albums'),
+            ),
+            if (albumGroups.isEmpty)
+              const SliverFillRemaining(
+                child: Center(
+                  child: Text('No albums found'),
                 ),
-                title: Text(albumName),
-                subtitle: Text('${albumSongs.length} songs'),
-                onTap: () {
-                  // TODO: Navigate to album detail
-                },
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final albumName = albumGroups.keys.elementAt(index);
+                    final albumSongs = albumGroups[albumName]!;
+                    
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: ListTile(
+                        leading: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: Color(MusicService.generateColorForSong(albumName)),
+                          ),
+                          child: const Icon(Icons.album, color: Colors.white),
+                        ),
+                        title: Text(albumName),
+                        subtitle: Text('${albumSongs.length} songs'),
+                        onTap: () {
+                          _showAlbumSongs(context, albumName, albumSongs);
+                        },
+                      ),
+                    );
+                  },
+                  childCount: albumGroups.length,
+                ),
               ),
-            );
-          },
+          ],
         );
       },
     );
@@ -216,40 +230,131 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, musicProvider, child) {
         final artistGroups = MusicService.groupSongsByArtist(musicProvider.songs);
         
-        return ListView.builder(
-          itemCount: artistGroups.length,
-          itemBuilder: (context, index) {
-            final artistName = artistGroups.keys.elementAt(index);
-            final artistSongs = artistGroups[artistName]!;
-            
-            return Card(
-              margin: const EdgeInsets.all(8),
-              child: ListTile(
-                leading: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(25),
-                    color: Color(MusicService.generateColorForSong(artistName)),
-                  ),
-                  child: const Icon(Icons.person, color: Colors.white),
+        return CustomScrollView(
+          slivers: [
+            const SliverAppBar(
+              floating: true,
+              snap: true,
+              title: Text('Artists'),
+            ),
+            if (artistGroups.isEmpty)
+              const SliverFillRemaining(
+                child: Center(
+                  child: Text('No artists found'),
                 ),
-                title: Text(artistName),
-                subtitle: Text('${artistSongs.length} songs'),
-                onTap: () {
-                  // TODO: Navigate to artist detail
-                },
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final artistName = artistGroups.keys.elementAt(index);
+                    final artistSongs = artistGroups[artistName]!;
+                    
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: ListTile(
+                        leading: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(25),
+                            color: Color(MusicService.generateColorForSong(artistName)),
+                          ),
+                          child: const Icon(Icons.person, color: Colors.white),
+                        ),
+                        title: Text(artistName),
+                        subtitle: Text('${artistSongs.length} songs'),
+                        onTap: () {
+                          _showArtistSongs(context, artistName, artistSongs);
+                        },
+                      ),
+                    );
+                  },
+                  childCount: artistGroups.length,
+                ),
               ),
-            );
-          },
+          ],
         );
       },
     );
   }
 
   Widget _buildPlaylistsTab() {
-    return const Center(
-      child: Text('Playlists - Coming Soon'),
+    return CustomScrollView(
+      slivers: [
+        const SliverAppBar(
+          floating: true,
+          snap: true,
+          title: Text('Playlists'),
+          actions: [
+            // Add playlist button can be added here
+          ],
+        ),
+        SliverList(
+          delegate: SliverChildListDelegate([
+            // Favorites playlist
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: ListTile(
+                leading: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.red,
+                  ),
+                  child: const Icon(Icons.favorite, color: Colors.white),
+                ),
+                title: const Text('Favorites'),
+                subtitle: const Text('Your favorite songs'),
+                onTap: () {
+                  _showFavorites(context);
+                },
+              ),
+            ),
+            // Recently played
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: ListTile(
+                leading: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.blue,
+                  ),
+                  child: const Icon(Icons.history, color: Colors.white),
+                ),
+                title: const Text('Recently Played'),
+                subtitle: const Text('Your recent listening history'),
+                onTap: () {
+                  _showRecentlyPlayed(context);
+                },
+              ),
+            ),
+            // Most played
+            Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: ListTile(
+                leading: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.green,
+                  ),
+                  child: const Icon(Icons.trending_up, color: Colors.white),
+                ),
+                title: const Text('Most Played'),
+                subtitle: const Text('Your most played songs'),
+                onTap: () {
+                  _showMostPlayed(context);
+                },
+              ),
+            ),
+          ]),
+        );
+      ],
     );
   }
 
@@ -322,5 +427,211 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _showAppMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Settings coming soon!')),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.info),
+            title: const Text('About'),
+            onTap: () {
+              Navigator.pop(context);
+              _showAboutDialog(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Music Player'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Version: 1.0.0'),
+            SizedBox(height: 8),
+            Text('A powerful, lag-free music player with background playback and notification controls.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAlbumSongs(BuildContext context, String albumName, List<Song> songs) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text(albumName),
+            backgroundColor: Color(MusicService.generateColorForSong(albumName)),
+            foregroundColor: Colors.white,
+          ),
+          body: SongList(songs: songs),
+        ),
+      ),
+    );
+  }
+
+  void _showArtistSongs(BuildContext context, String artistName, List<Song> songs) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text(artistName),
+            backgroundColor: Color(MusicService.generateColorForSong(artistName)),
+            foregroundColor: Colors.white,
+          ),
+          body: SongList(songs: songs),
+        ),
+      ),
+    );
+  }
+
+  void _showFavorites(BuildContext context) async {
+    final favoriteIds = await PlaylistService.getFavoriteSongIds();
+    final musicProvider = Provider.of<MusicProvider>(context, listen: false);
+    final favoriteSongs = musicProvider.songs
+        .where((song) => favoriteIds.contains(song.id))
+        .toList();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Favorites'),
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
+          body: favoriteSongs.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.favorite_border, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No favorite songs yet'),
+                    ],
+                  ),
+                )
+              : SongList(songs: favoriteSongs),
+        ),
+      ),
+    );
+  }
+
+  void _showRecentlyPlayed(BuildContext context) async {
+    final recentIds = await PlaylistService.getRecentlyPlayedIds();
+    final musicProvider = Provider.of<MusicProvider>(context, listen: false);
+    final recentSongs = recentIds
+        .map((id) => musicProvider.songs.firstWhere(
+              (song) => song.id == id,
+              orElse: () => Song(
+                id: '',
+                title: '',
+                artist: '',
+                album: '',
+                path: '',
+                duration: 0,
+              ),
+            ))
+        .where((song) => song.id.isNotEmpty)
+        .toList();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Recently Played'),
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
+          body: recentSongs.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.history, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No recently played songs'),
+                    ],
+                  ),
+                )
+              : SongList(songs: recentSongs),
+        ),
+      ),
+    );
+  }
+
+  void _showMostPlayed(BuildContext context) async {
+    final mostPlayedIds = await PlaylistService.getMostPlayedIds();
+    final musicProvider = Provider.of<MusicProvider>(context, listen: false);
+    final mostPlayedSongs = mostPlayedIds
+        .map((id) => musicProvider.songs.firstWhere(
+              (song) => song.id == id,
+              orElse: () => Song(
+                id: '',
+                title: '',
+                artist: '',
+                album: '',
+                path: '',
+                duration: 0,
+              ),
+            ))
+        .where((song) => song.id.isNotEmpty)
+        .toList();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Most Played'),
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+          ),
+          body: mostPlayedSongs.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.trending_up, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No most played songs yet'),
+                    ],
+                  ),
+                )
+              : SongList(songs: mostPlayedSongs),
+        ),
+      ),
+    );
   }
 }
