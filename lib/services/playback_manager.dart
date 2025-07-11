@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 
 class PlaybackManager extends ChangeNotifier {
   final AudioPlayer player = AudioPlayer();
@@ -8,7 +9,9 @@ class PlaybackManager extends ChangeNotifier {
   int _currentIndex = -1;
 
   FileSystemEntity? get currentSong =>
-      (_currentIndex >= 0 && _currentIndex < _songs.length) ? _songs[_currentIndex] : null;
+      (_currentIndex >= 0 && _currentIndex < _songs.length)
+          ? _songs[_currentIndex]
+          : null;
 
   bool get isPlaying => player.playing;
 
@@ -24,8 +27,27 @@ class PlaybackManager extends ChangeNotifier {
 
   Future<void> _playCurrent() async {
     if (_currentIndex < 0 || _currentIndex >= _songs.length) return;
-    await player.setFilePath(_songs[_currentIndex].path);
-    player.play();
+
+    final file = _songs[_currentIndex];
+    final path = file.path;
+    final fileName = path.split('/').last;
+
+    await player.setAudioSource(
+      AudioSource.uri(
+        Uri.file(path),
+        tag: MediaItem(
+          id: path,
+          title: fileName,
+          artist: 'Unknown Artist',
+          album: 'Local Files',
+          artUri: Uri.parse(
+            'https://via.placeholder.com/300x300.png?text=No+Artwork',
+          ), // Placeholder artwork
+        ),
+      ),
+    );
+
+    await player.play();
     notifyListeners();
   }
 
@@ -49,5 +71,11 @@ class PlaybackManager extends ChangeNotifier {
       _currentIndex--;
       _playCurrent();
     }
+  }
+
+  @override
+  void dispose() {
+    player.dispose();
+    super.dispose();
   }
 }

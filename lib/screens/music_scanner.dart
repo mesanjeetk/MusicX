@@ -28,8 +28,16 @@ class _MusicScannerState extends State<MusicScanner> {
   @override
   void initState() {
     super.initState();
+    requestNotificationPermission();
     scanFolders();
   }
+  
+  Future<void> requestNotificationPermission() async {
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
+  }
+
 
   Future<void> scanFolders() async {
     final androidInfo = await DeviceInfoPlugin().androidInfo;
