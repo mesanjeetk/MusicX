@@ -294,7 +294,7 @@ class PlayerScreen extends StatelessWidget {
             title: const Text('Share Song'),
             onTap: () {
               Navigator.pop(context);
-              _shareSong(context, song);
+              _shareSong(context, musicProvider.currentSong!);
             },
           ),
         ],
