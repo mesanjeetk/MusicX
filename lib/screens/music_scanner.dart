@@ -43,7 +43,7 @@ class _MusicScannerState extends State<MusicScanner> {
       return;
     }
     await CacheService.removeDeletedSongsFromCache();     
-    final cachedPaths = await CacheService.loadCachedPaths();
+    final cachedPaths = await CacheService.loadCachedSongs();
     for (final path in cachedPaths) {
       final file = File(path);
       if (await file.exists()) {
@@ -70,7 +70,7 @@ class _MusicScannerState extends State<MusicScanner> {
         }
       }
     }
-    await CacheService.saveSongs(_musicFiles)
+    await CacheService.saveSongs(_musicFiles);
   }
 
   void _scanSubDirectoriesAsync() {
@@ -85,7 +85,7 @@ class _MusicScannerState extends State<MusicScanner> {
         });
       }
     }
-    await CacheService.saveSongs(_musicFiles)
+    await CacheService.saveSongs(_musicFiles);
   }
 
   bool _isValidAudio(FileSystemEntity file) {
