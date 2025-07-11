@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+// import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 import 'services/playback_manager.dart';
 import 'screens/music_scanner.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
+  // WidgetsFlutterBinding.ensureInitialized();
 
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.yourapp.audio',
-    androidNotificationChannelName: 'Music Playback',
-    androidNotificationOngoing: true,
-  );
+  // await JustAudioBackground.init(
+  //   androidNotificationChannelId: 'com.yourapp.audio',
+  //   androidNotificationChannelName: 'Music Playback',
+  //   androidNotificationOngoing: true,
+  // );
   runApp(
     ChangeNotifierProvider(
       create: (_) => PlaybackManager(),

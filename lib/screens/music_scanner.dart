@@ -1,10 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../services/permission_service.dart';
 import '../services/playback_manager.dart';
 import 'full_player_page.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class MusicScanner extends StatefulWidget {
   const MusicScanner({super.key});
@@ -13,7 +14,7 @@ class MusicScanner extends StatefulWidget {
   State<MusicScanner> createState() => _MusicScannerState();
 }
 
-class _MusicScannerState extends State<MusicScanner> {
+class _MusicScannerState extends State<MusicScanner> with WidgetsBindingObserver {
   List<FileSystemEntity> musicFiles = [];
   bool isLoading = true;
 
@@ -28,30 +29,38 @@ class _MusicScannerState extends State<MusicScanner> {
   @override
   void initState() {
     super.initState();
-    requestNotificationPermission();
-    scanFolders();
+    WidgetsBinding.instance.addObserver(this);
+    _initialize();
   }
-  
-  Future<void> requestNotificationPermission() async {
-    if (await Permission.notification.isDenied) {
-      await Permission.notification.request();
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _initialize(); // Recheck permissions when returning to app
     }
   }
 
+  Future<void> _initialize() async {
+    setState(() => isLoading = true);
 
-  Future<void> scanFolders() async {
-    final androidInfo = await DeviceInfoPlugin().androidInfo;
-    final sdkInt = androidInfo.version.sdkInt;
-    final status = sdkInt >= 33
-        ? await Permission.audio.request()
-        : await Permission.storage.request();
-
-    if (!status.isGranted) {
+    final granted = await PermissionService.ensureAllPermissions();
+    if (!granted) {
       setState(() => isLoading = false);
       return;
     }
 
+    scanFolders();
+  }
+
+  Future<void> scanFolders() async {
     List<FileSystemEntity> allFiles = [];
+
     for (String path in targetPaths) {
       final dir = Directory(path);
       if (await dir.exists()) {
@@ -121,7 +130,24 @@ class _MusicScannerState extends State<MusicScanner> {
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : musicFiles.isEmpty
-                    ? const Center(child: Text("No music files found."))
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              "Permission denied or no music files found.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              onPressed: () => openAppSettings(),
+                              icon: const Icon(Icons.settings),
+                              label: const Text("Open App Settings"),
+                            ),
+                          ],
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: musicFiles.length,
                         itemBuilder: (context, index) {
