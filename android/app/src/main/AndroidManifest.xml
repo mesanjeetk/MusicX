@@ -1,55 +1,60 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools">
 
   <!-- Legacy storage for Android < 10 -->
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-  
-  <!-- Scoped Media for Android 13+ -->
+
+  <!-- Scoped media for Android 13+ -->
   <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
   <!-- Notifications for Android 13+ -->
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-  <!-- Playback service -->
-  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+  <!-- Mic recording if you use it -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
   <!-- Control audio output -->
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
+  <!-- Foreground playback service -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
   <application
-    android:label="MusicX"
-    android:name="${applicationName}"
-    android:icon="@mipmap/ic_launcher">
+      android:label="MusicX"
+      android:name="${applicationName}"
+      android:icon="@mipmap/ic_launcher">
 
     <activity
-      android:name=".MainActivity"
-      android:exported="true"
-      android:launchMode="singleTop"
-      android:theme="@style/LaunchTheme"
-      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-      android:hardwareAccelerated="true"
-      android:windowSoftInputMode="adjustResize">
-      
+        android:name=".MainActivity"
+        android:exported="true"
+        android:launchMode="singleTop"
+        android:theme="@style/LaunchTheme"
+        android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+        android:hardwareAccelerated="true"
+        android:windowSoftInputMode="adjustResize">
+
       <meta-data
-        android:name="io.flutter.embedding.android.NormalTheme"
-        android:resource="@style/NormalTheme"/>
+          android:name="io.flutter.embedding.android.NormalTheme"
+          android:resource="@style/NormalTheme" />
 
       <intent-filter>
-        <action android:name="android.intent.action.MAIN"/>
-        <category android:name="android.intent.category.LAUNCHER"/>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
+
     </activity>
 
     <service
-      android:name="com.ryanheise.audioservice.AudioService"
-      android:foregroundServiceType="mediaPlayback"
-      android:exported="true"
-      tools:ignore="Instantiatable" />
+        android:name="com.ryanheise.audioservice.AudioService"
+        android:foregroundServiceType="mediaPlayback"
+        android:exported="true"
+        tools:ignore="Instantiatable" />
 
     <meta-data
-      android:name="flutterEmbedding"
-      android:value="2" />
+        android:name="flutterEmbedding"
+        android:value="2" />
+
   </application>
 
 </manifest>

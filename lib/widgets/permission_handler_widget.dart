@@ -27,19 +27,8 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
   Future<void> _checkPermissions() async {
     setState(() => _isCheckingPermissions = true);
 
-    // Check if on Android 13+
-    final isAndroid13Plus = Platform.isAndroid && (await Permission.mediaAudio.isSupported());
-
     final hasPermissions = await PermissionService.hasAllEssentialPermissions();
     final deniedPermissions = await PermissionService.getDeniedPermissions();
-
-    // For Android 13+, fallback to mediaAudio
-    if (isAndroid13Plus && deniedPermissions.contains(Permission.storage)) {
-      deniedPermissions.remove(Permission.storage);
-      if (!deniedPermissions.contains(Permission.mediaAudio)) {
-        deniedPermissions.add(Permission.mediaAudio);
-      }
-    }
 
     setState(() {
       _hasEssentialPermissions = hasPermissions;
@@ -272,8 +261,8 @@ class _PermissionHandlerWidgetState extends State<PermissionHandlerWidget> {
       case Permission.storage:
         return Icons.folder;
       case Permission.audio:
-      case Permission.mediaAudio:
-        return Icons.music_note;
+      case Permission.microphone:
+        return Icons.mic;
       case Permission.notification:
         return Icons.notifications;
       default:
