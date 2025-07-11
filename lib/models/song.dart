@@ -2,21 +2,35 @@ class Song {
   final String id;
   final String title;
   final String artist;
-  final String album;
+  final String? album;
   final String path;
+  final Duration? duration;
   final String? albumArt;
-  final int duration;
-
+  
   Song({
     required this.id,
     required this.title,
     required this.artist,
-    required this.album,
+    this.album,
     required this.path,
+    this.duration,
     this.albumArt,
-    required this.duration,
   });
-
+  
+  factory Song.fromMap(Map<String, dynamic> map) {
+    return Song(
+      id: map['id'] ?? '',
+      title: map['title'] ?? 'Unknown Title',
+      artist: map['artist'] ?? 'Unknown Artist',
+      album: map['album'],
+      path: map['path'] ?? '',
+      duration: map['duration'] != null 
+        ? Duration(milliseconds: map['duration'])
+        : null,
+      albumArt: map['albumArt'],
+    );
+  }
+  
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -24,20 +38,8 @@ class Song {
       'artist': artist,
       'album': album,
       'path': path,
+      'duration': duration?.inMilliseconds,
       'albumArt': albumArt,
-      'duration': duration,
     };
-  }
-
-  factory Song.fromMap(Map<String, dynamic> map) {
-    return Song(
-      id: map['id'] ?? '',
-      title: map['title'] ?? 'Unknown',
-      artist: map['artist'] ?? 'Unknown Artist',
-      album: map['album'] ?? 'Unknown Album',
-      path: map['path'] ?? '',
-      albumArt: map['albumArt'],
-      duration: map['duration'] ?? 0,
-    );
   }
 }

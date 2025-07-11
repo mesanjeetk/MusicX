@@ -1,56 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
-import 'providers/music_provider.dart';
-import 'services/audio_handler.dart';
-import 'widgets/permission_handler_widget.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'screens/home_screen.dart';
-import 'services/sleep_timer_service.dart';
+import 'services/audio_handler.dart';
+import 'services/music_service.dart';
+import 'providers/music_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Request permissions
+  await _requestPermissions();
+  
   // Initialize audio service
-  final audioHandler = await AudioService.init<MusicAudioHandler>(
+  final audioHandler = await AudioService.init(
     builder: () => MusicAudioHandler(),
     config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.musicplayer.channel.audio',
+      androidNotificationChannelId: 'com.example.music_player.channel.audio',
       androidNotificationChannelName: 'Music Player',
       androidNotificationOngoing: true,
-      androidShowNotificationBadge: true,
+      androidStopForegroundOnPause: true,
     ),
   );
   
-  runApp(MyApp(audioHandler: audioHandler));
+  runApp(MusicPlayerApp(audioHandler: audioHandler));
 }
 
-class MyApp extends StatelessWidget {
-  final MusicAudioHandler audioHandler;
+Future<void> _requestPermissions() async {
+  final permissions = <Permission>[
+    Permission.storage,
+    Permission.manageExternalStorage,
+    Permission.notification,
+  ];
   
-  const MyApp({super.key, required this.audioHandler});
+  // For Android 13+ (API 33+)
+  if (await Permission.audio.isPermanentlyDenied == false) {
+    permissions.add(Permission.audio);
+  }
+  
+  await permissions.request();
+}
+
+class MusicPlayerApp extends StatelessWidget {
+  final AudioHandler audioHandler;
+  
+  const MusicPlayerApp({Key? key, required this.audioHandler}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => MusicProvider(audioHandler)),
-        ChangeNotifierProvider(create: (context) => SleepTimerService()),
+        Provider<AudioHandler>.value(value: audioHandler),
+        ChangeNotifierProvider(create: (_) => MusicProvider()),
+        Provider(create: (_) => MusicService()),
       ],
       child: MaterialApp(
         title: 'Music Player',
-        debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          primarySwatch: Colors.blue,
-          scaffoldBackgroundColor: Colors.grey[100],
+          primarySwatch: Colors.purple,
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: const Color(0xFF1a1a1a),
           appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
+            backgroundColor: Color(0xFF2a2a2a),
             elevation: 0,
-            foregroundColor: Colors.black,
           ),
         ),
-        home: const PermissionHandlerWidget(
-          child: HomeScreen(),
-        ),
+        home: const HomeScreen(),
+        debugShowCheckedModeBanner: false,
       ),
     );
   }

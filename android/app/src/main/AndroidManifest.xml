@@ -1,25 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
-  <!-- Legacy storage for Android < 10 -->
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-
-  <!-- Scoped media for Android 13+ -->
-  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-
-  <!-- Notifications for Android 13+ -->
-  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-  <!-- Mic recording if you use it -->
-  <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-  <!-- Control audio output -->
-  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-
-  <!-- Foreground playback service -->
-  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-
+<uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    
+    <!-- Android 13+ (API 33+) permissions -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    
+    <!-- Optional permissions for enhanced functionality -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
   <application
       android:label="MusicX"
       android:name="${applicationName}"
@@ -46,15 +40,38 @@
     </activity>
 
     <service
-        android:name="com.ryanheise.audioservice.AudioService"
-        android:foregroundServiceType="mediaPlayback"
-        android:exported="true"
-        tools:ignore="Instantiatable" />
-
-    <meta-data
-        android:name="flutterEmbedding"
-        android:value="2" />
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        
+        <!-- Media button receiver -->
+        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+        
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
 
   </application>
+  <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="audio/*" />
+        </intent>
+    </queries>
 
 </manifest>
