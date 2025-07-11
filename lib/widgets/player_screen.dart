@@ -4,6 +4,7 @@ import '../providers/music_provider.dart';
 import '../services/music_service.dart';
 import '../services/sleep_timer_service.dart';
 import './sleep_timer_dialog.dart';
+import "../models/song.dart";
 
 class PlayerScreen extends StatelessWidget {
   const PlayerScreen({super.key});

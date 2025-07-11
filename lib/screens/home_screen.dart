@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/music_provider.dart';
 import '../services/permission_service.dart';
+import '../services/playlist_service.dart';
 import '../widgets/song_list.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/player_screen.dart';
 import '../services/music_service.dart';
+import "../models/song.dart";
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

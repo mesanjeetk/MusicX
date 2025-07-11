@@ -143,7 +143,7 @@ class MusicAudioHandler extends BaseAudioHandler {
   }
 
   @override
-  void dispose() {
+  void dispose() async {
     await _player.dispose();
     _songsSubject.close();
     _currentSongSubject.close();
