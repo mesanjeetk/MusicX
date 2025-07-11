@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:on_audio_query/on_audio_query.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,112 +13,88 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'All Audio Files',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: const AudioListPage(),
+      title: 'Optimized Music Scanner',
+      home: const MusicScannerPage(),
     );
   }
 }
 
-class AudioListPage extends StatefulWidget {
-  const AudioListPage({super.key});
+class MusicScannerPage extends StatefulWidget {
+  const MusicScannerPage({super.key});
 
   @override
-  State<AudioListPage> createState() => _AudioListPageState();
+  State<MusicScannerPage> createState() => _MusicScannerPageState();
 }
 
-class _AudioListPageState extends State<AudioListPage> {
-  final OnAudioQuery _audioQuery = OnAudioQuery();
-  List<SongModel> _songs = [];
+class _MusicScannerPageState extends State<MusicScannerPage> {
+  List<FileSystemEntity> musicFiles = [];
+  final List<String> validExtensions = ['mp3', 'wav', 'm4a', 'ogg'];
+
+  final List<String> targetDirs = [
+    '/storage/emulated/0/Music',
+    '/storage/emulated/0/Downloads',
+    '/storage/emulated/0/Documents',
+  ];
 
   @override
   void initState() {
     super.initState();
-    requestPermissions();
+    requestPermissionAndScan();
   }
 
-  Future<void> requestPermissions() async {
-    if (Platform.isAndroid) {
-      if (await _checkAudioPermission()) {
-        fetchSongs();
-      } else {
-        _showPermissionDeniedDialog();
+  Future<void> requestPermissionAndScan() async {
+    final status = await Permission.storage.request();
+
+    if (status.isGranted) {
+      scanMultipleFolders();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Storage permission denied')),
+      );
+    }
+  }
+
+  Future<void> scanMultipleFolders() async {
+    List<FileSystemEntity> foundFiles = [];
+
+    for (String path in targetDirs) {
+      final dir = Directory(path);
+      if (await dir.exists()) {
+        try {
+          final files = dir.listSync(recursive: true);
+          for (var file in files) {
+            if (file is File) {
+              final ext = file.path.split('.').last.toLowerCase();
+              if (validExtensions.contains(ext)) {
+                foundFiles.add(file);
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error scanning $path: $e');
+        }
       }
     }
-  }
 
-  Future<bool> _checkAudioPermission() async {
-    // For Android 13+ use READ_MEDIA_AUDIO
-    if (Platform.isAndroid && androidInfo != null && androidInfo!.version.sdkInt >= 33) {
-      final status = await Permission.audio.request();
-      return status.isGranted;
-    }
-
-    // For Android < 13 use storage
-    final status = await Permission.storage.request();
-    return status.isGranted;
-  }
-
-  void _showPermissionDeniedDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Permission Required"),
-        content: const Text(
-            "This app needs permission to read your music files. Please grant it from app settings."),
-        actions: [
-          TextButton(
-            onPressed: () {
-              openAppSettings();
-              Navigator.of(context).pop();
-            },
-            child: const Text("Open Settings"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("Cancel"),
-          )
-        ],
-      ),
-    );
-  }
-
-  Future<void> fetchSongs() async {
-    final songs = await _audioQuery.querySongs();
     setState(() {
-      _songs = songs;
-    });
-  }
-
-  AndroidDeviceInfo? androidInfo;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadDeviceInfo();
-  }
-
-  void _loadDeviceInfo() async {
-    final info = await DeviceInfoPlugin().androidInfo;
-    setState(() {
-      androidInfo = info;
+      musicFiles = foundFiles;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("All Songs")),
-      body: _songs.isEmpty
-          ? const Center(child: Text("No Songs Found or Permission Not Granted"))
+      appBar: AppBar(title: const Text("Found Audio Files")),
+      body: musicFiles.isEmpty
+          ? const Center(child: Text("No music files found"))
           : ListView.builder(
-              itemCount: _songs.length,
+              itemCount: musicFiles.length,
               itemBuilder: (context, index) {
-                final song = _songs[index];
+                final file = musicFiles[index];
                 return ListTile(
                   leading: const Icon(Icons.music_note),
-                  title: Text(song.title),
-                  subtitle: Text(song.artist ?? "Unknown Artist"),
+                  title: Text(file.path.split('/').last),
+                  subtitle: Text(file.path),
                 );
               },
             ),
