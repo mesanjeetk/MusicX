@@ -263,6 +263,9 @@ class PlayerScreen extends StatelessWidget {
   }
 
   void _showPlayerOptions(BuildContext context) {
+    final musicProvider = Provider.of<MusicProvider>(context, listen: false);
+    
+    
     showModalBottomSheet(
       context: context,
       builder: (context) => Column(

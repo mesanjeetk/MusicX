@@ -355,10 +355,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ]),
-        );
+        )
       ],
     );
-    ];
   }
 
   Widget _buildSearchHeader(int resultCount) {
