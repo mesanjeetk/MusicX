@@ -43,13 +43,10 @@ class _MusicScannerState extends State<MusicScanner> {
       return;
     }
     await CacheService.removeDeletedSongsFromCache();     
-    final cachedPaths = await CacheService.loadCachedSongs();
-    for (final path in cachedPaths) {
-      final file = File(path);
-      if (await file.exists()) {
-        _uniquePaths.add(path);
-        _musicFiles.add(file);
-      }
+    final cachedFiles = await CacheService.loadCachedSongs();
+    for (final file in cachedFiles) {
+      _uniquePaths.add(file.path);
+      _musicFiles.add(file);
     }
 
     setState(() => _loading = false);
@@ -57,7 +54,8 @@ class _MusicScannerState extends State<MusicScanner> {
     _scanSubDirectoriesAsync();
   }
 
-  void _scanParentDirectories() async {
+  Future<void> _scanParentDirectories() async {
+    bool updated = false;
     for (final path in targetPaths) {
       final dir = Directory(path);
       if (await dir.exists()) {
@@ -65,28 +63,35 @@ class _MusicScannerState extends State<MusicScanner> {
         for (final file in entries) {
           if (_isValidAudio(file) && _uniquePaths.add(file.path)) {
             _musicFiles.add(file);
-            setState(() {});
+            updated = true;
           }
         }
       }
     }
+  
+    if (updated) setState(() {});
     await CacheService.saveSongs(_musicFiles);
   }
 
-  void _scanSubDirectoriesAsync() {
+
+  Future<void> _scanSubDirectoriesAsync() async {
+    bool updated = false;
     for (final path in targetPaths) {
       final dir = Directory(path);
       if (dir.existsSync()) {
-        dir.list(recursive: true).listen((file) {
+        await for (final file in dir.list(recursive: true)) {
           if (_isValidAudio(file) && _uniquePaths.add(file.path)) {
             _musicFiles.add(file);
-            setState(() {});
+            updated = true;
           }
-        });
+        }
       }
     }
+  
+    if (updated) setState(() {});
     await CacheService.saveSongs(_musicFiles);
   }
+
 
   bool _isValidAudio(FileSystemEntity file) {
     final lower = file.path.toLowerCase();
