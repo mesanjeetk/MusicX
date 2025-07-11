@@ -2,14 +2,17 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
 
 class PermissionService {
-  /// Only real permissions — no fake mediaAudio
+  /// Final correct list:
+  /// ✅ READ_EXTERNAL_STORAGE → Permission.storage (for Android < 10)
+  /// ✅ READ_MEDIA_AUDIO → Permission.audio (maps to microphone — not correct!)
+  /// 👉 So use only Permission.storage + Permission.notification + microphone if recording!
   static const List<Permission> _requiredPermissions = [
-    Permission.storage,
-    Permission.audio, // mic / playback
-    Permission.notification, // for playback notifications
+    Permission.storage, // For older Androids (READ_EXTERNAL_STORAGE)
+    Permission.notification, // POST_NOTIFICATIONS
+    Permission.microphone, // RECORD_AUDIO — only if you use mic!
   ];
 
-  /// Check all required permissions
+  /// Checks all required
   static Future<Map<Permission, PermissionStatus>> checkAllPermissions() async {
     final statuses = <Permission, PermissionStatus>{};
     for (final permission in _requiredPermissions) {
@@ -18,15 +21,16 @@ class PermissionService {
     return statuses;
   }
 
-  /// Check if all essential permissions are granted
+  /// Check if all essentials granted
   static Future<bool> hasAllEssentialPermissions() async {
     final statuses = await checkAllPermissions();
     final storageGranted = statuses[Permission.storage]?.isGranted ?? false;
-    final audioGranted = statuses[Permission.audio]?.isGranted ?? false;
-    return storageGranted && audioGranted;
+    final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+    // If you don’t record, ignore micGranted
+    return storageGranted; // Only storage is essential for music scanning
   }
 
-  /// Get list of denied permissions
+  /// Get denied list
   static Future<List<Permission>> getDeniedPermissions() async {
     final statuses = await checkAllPermissions();
     final denied = <Permission>[];
@@ -38,19 +42,19 @@ class PermissionService {
     return denied;
   }
 
-  /// Request specific
+  /// Request missing
   static Future<Map<Permission, PermissionStatus>> requestMissingPermissions(
       List<Permission> permissions) async {
     return permissions.request();
   }
 
-  /// Check if permanently denied
+  /// Check permanently denied
   static Future<bool> isPermanentlyDenied(Permission permission) async {
     final status = await permission.status;
     return status.isPermanentlyDenied;
   }
 
-  /// Show rationale
+  /// Rationale
   static Future<bool> showPermissionRationale(
       BuildContext context, Permission permission) async {
     final result = await showDialog<bool>(
@@ -85,7 +89,7 @@ class PermissionService {
     return result ?? false;
   }
 
-  /// Show settings dialog for permanently denied
+  /// Show settings dialog
   static Future<bool> showSettingsDialog(
       BuildContext context, List<Permission> perms) async {
     final names = perms.map(getPermissionName).join(', ');
@@ -121,13 +125,13 @@ class PermissionService {
     return result ?? false;
   }
 
-  /// User-friendly names
+  /// Friendly name
   static String getPermissionName(Permission p) {
     switch (p) {
       case Permission.storage:
         return 'Storage Access';
-      case Permission.audio:
-        return 'Audio Access';
+      case Permission.microphone:
+        return 'Microphone Access';
       case Permission.notification:
         return 'Notifications';
       default:
@@ -135,13 +139,13 @@ class PermissionService {
     }
   }
 
-  /// User-friendly description
+  /// Friendly description
   static String getPermissionDescription(Permission p) {
     switch (p) {
       case Permission.storage:
         return 'Needed to scan and access your music files.';
-      case Permission.audio:
-        return 'Needed to play music and handle audio playback.';
+      case Permission.microphone:
+        return 'Needed to record audio or capture mic input.';
       case Permission.notification:
         return 'Needed to show playback controls in the notification bar.';
       default:
