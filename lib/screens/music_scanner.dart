@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/permission_service.dart';
 import '../services/playback_manager.dart';
+import '../services/cache_service.dart';
 import 'full_player_page.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -16,6 +17,7 @@ class MusicScanner extends StatefulWidget {
 
 class _MusicScannerState extends State<MusicScanner> {
   final List<FileSystemEntity> _musicFiles = [];
+  final Set<String> _uniquePaths = {};
   final List<String> validExtensions = ['mp3', 'wav', 'm4a', 'ogg'];
   final List<String> targetPaths = [
     '/storage/emulated/0/Download',
@@ -34,12 +36,23 @@ class _MusicScannerState extends State<MusicScanner> {
 
   Future<void> _initialize() async {
     setState(() => _loading = true);
+
     final granted = await PermissionService.ensureAllPermissions();
     if (!granted) {
       setState(() => _loading = false);
       return;
     }
+    await CacheService.removeDeletedSongsFromCache();     
+    final cachedPaths = await CacheService.loadCachedPaths();
+    for (final path in cachedPaths) {
+      final file = File(path);
+      if (await file.exists()) {
+        _uniquePaths.add(path);
+        _musicFiles.add(file);
+      }
+    }
 
+    setState(() => _loading = false);
     _scanParentDirectories();
     _scanSubDirectoriesAsync();
   }
@@ -49,29 +62,30 @@ class _MusicScannerState extends State<MusicScanner> {
       final dir = Directory(path);
       if (await dir.exists()) {
         final entries = dir.listSync(recursive: false);
-        final newSongs = entries.where(_isValidAudio).toList();
-        setState(() {
-          _musicFiles.addAll(newSongs);
-        });
+        for (final file in entries) {
+          if (_isValidAudio(file) && _uniquePaths.add(file.path)) {
+            _musicFiles.add(file);
+            setState(() {});
+          }
+        }
       }
     }
-
-    setState(() => _loading = false);
+    await CacheService.saveSongs(_musicFiles)
   }
 
   void _scanSubDirectoriesAsync() {
     for (final path in targetPaths) {
       final dir = Directory(path);
       if (dir.existsSync()) {
-        dir.list(recursive: true, followLinks: false).listen((file) {
-          if (_isValidAudio(file) && !_musicFiles.contains(file)) {
-            setState(() {
-              _musicFiles.add(file);
-            });
+        dir.list(recursive: true).listen((file) {
+          if (_isValidAudio(file) && _uniquePaths.add(file.path)) {
+            _musicFiles.add(file);
+            setState(() {});
           }
         });
       }
     }
+    await CacheService.saveSongs(_musicFiles)
   }
 
   bool _isValidAudio(FileSystemEntity file) {
